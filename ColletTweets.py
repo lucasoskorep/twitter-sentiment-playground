@@ -8,7 +8,7 @@ from pprint import pprint
 from dotenv import load_dotenv
 
 load_dotenv()
-
+#This function automatically loads any information from .env files into the local environment at runtime!
 consumer_key = os.getenv('CKEY', '0')
 consumer_secret = os.getenv('CSECRET', '0')
 access_token = os.getenv('ATOKEN', '0')
