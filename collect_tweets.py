@@ -40,7 +40,6 @@ def save_hashtag_to_csv(hashtag, days, file):
             ]
         )
         csvFile.flush()
-        print("CSVWRITER WROTE THE ROW")
     base = datetime.date.today()+ datetime.timedelta(days=1)
     for day in [base - datetime.timedelta(days=x) for x in range(days)]:
         print(str(day), str(day - datetime.timedelta(days=1)))
