@@ -1,14 +1,12 @@
-# import twitter as tw
 import os
 import csv
 import tweepy
 import datetime
 
-from pprint import pprint
 from dotenv import load_dotenv
 
 load_dotenv()
-#This function automatically loads any information from .env files into the local environment at runtime!
+
 consumer_key = os.getenv('CKEY', '0')
 consumer_secret = os.getenv('CSECRET', '0')
 access_token = os.getenv('ATOKEN', '0')
@@ -49,7 +47,7 @@ def save_hashtag_to_csv(hashtag, days, file):
                 lang="en",
                 until=str(day),
                 since=str(day- datetime.timedelta(days=1)),
-                result_type= "mixed").items(100):
+                result_type= "mixed").items(250):
             print(tweet.created_at, tweet.text)
             csvWriter.writerow(
                 [
@@ -67,6 +65,6 @@ def save_hashtag_to_csv(hashtag, days, file):
                 ]
             )
 
-save_hashtag_to_csv("#covid", 7, "data/covid.csv")
-save_hashtag_to_csv("#quarantine", 7, "data/quarantine.csv")
+# save_hashtag_to_csv("#covid", 7, "data/covid.csv")
+# save_hashtag_to_csv("#quarantine", 7, "data/quarantine.csv")
 
