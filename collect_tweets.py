@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-consumer_key = os.getenv('CKEY', '0')
-consumer_secret = os.getenv('CSECRET', '0')
+consumer_key = os.getenv('APIKEY', '0')
+consumer_secret = os.getenv('APISECRET', '0')
 access_token = os.getenv('ATOKEN', '0')
 access_token_secret = os.getenv('ASECRET', '0')
 
