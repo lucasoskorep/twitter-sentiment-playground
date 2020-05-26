@@ -5,27 +5,70 @@ from tweepy import OAuthHandler
 from tweepy import Stream
  
 import twitter_credentials
+import json
 import numpy as np
 import pandas as pd
 
-
-# # # # TWITTER CLIENT # # # #
-class TwitterClient():
-    def __init__(self, twitter_user=None):
-        self.auth = TwitterAuthenticator().authenticate_twitter_app()
-        self.twitter_client = API(self.auth)
-
-        self.twitter_user = twitter_user
-
-    def get_twitter_client_api(self):
-        return self.twitter_client
-
-    def get_tweets(self, hash_tag, num_tweets):
-        tweets = []
-        for tweet in Cursor(self.twitter_client.search, q=hash_tag).items(num_tweets):
-            tweets.append(tweet)
-        return tweets
-
+# Two dictionaries that map US states to their abbreviations
+us_state2_abbrev = {
+    'Alabama': 'AL',
+    'Alaska': 'AK',
+    'American Samoa': 'AS',
+    'Arizona': 'AZ',
+    'Arkansas': 'AR',
+    'California': 'CA',
+    'Colorado': 'CO',
+    'Connecticut': 'CT',
+    'Delaware': 'DE',
+    'District of Columbia': 'DC',
+    'Florida': 'FL',
+    'Georgia': 'GA',
+    'Guam': 'GU',
+    'Hawaii': 'HI',
+    'Idaho': 'ID',
+    'Illinois': 'IL',
+    'Indiana': 'IN',
+    'Iowa': 'IA',
+    'Kansas': 'KS',
+    'Kentucky': 'KY',
+    'Louisiana': 'LA',
+    'Maine': 'ME',
+    'Maryland': 'MD',
+    'Massachusetts': 'MA',
+    'Michigan': 'MI',
+    'Minnesota': 'MN',
+    'Mississippi': 'MS',
+    'Missouri': 'MO',
+    'Montana': 'MT',
+    'Nebraska': 'NE',
+    'Nevada': 'NV',
+    'New Hampshire': 'NH',
+    'New Jersey': 'NJ',
+    'New Mexico': 'NM',
+    'New York': 'NY',
+    'North Carolina': 'NC',
+    'North Dakota': 'ND',
+    'Northern Mariana Islands': 'MP',
+    'Ohio': 'OH',
+    'Oklahoma': 'OK',
+    'Oregon': 'OR',
+    'Pennsylvania': 'PA',
+    'Puerto Rico': 'PR',
+    'Rhode Island': 'RI',
+    'South Carolina': 'SC',
+    'South Dakota': 'SD',
+    'Tennessee': 'TN',
+    'Texas': 'TX',
+    'Utah': 'UT',
+    'Vermont': 'VT',
+    'Virgin Islands': 'VI',
+    'Virginia': 'VA',
+    'Washington': 'WA',
+    'West Virginia': 'WV',
+    'Wisconsin': 'WI',
+    'Wyoming': 'WY'
+}
+us_abbrev2_state = dict(map(reversed, us_state2_abbrev.items()))
 
 # # # # TWITTER AUTHENTICATER # # # #
 class TwitterAuthenticator():
@@ -35,30 +78,8 @@ class TwitterAuthenticator():
         auth.set_access_token(twitter_credentials.ACCESS_TOKEN, twitter_credentials.ACCESS_TOKEN_SECRET)
         return auth
 
-class TweetAnalyzer():
-    """
-    Functionality for analyzing and categorizing content from tweets.
-    """
-    def tweets_to_data_frame(self, tweets):
-        df = pd.DataFrame(data=[tweet.text for tweet in tweets], columns=['Tweets'])
-
-        df['id'] = np.array([tweet.id for tweet in tweets])
-        df['geo'] = np.array([tweet.geo for tweet in tweets])
-        df['date'] = np.array([tweet.created_at for tweet in tweets])
-        df['len_of_tweet'] = np.array([len(tweet.text) for tweet in tweets])
-        df['likes'] = np.array([tweet.favorite_count for tweet in tweets])
-        df['retweets'] = np.array([tweet.retweet_count for tweet in tweets])
-        df['source'] = np.array([tweet.source for tweet in tweets])
-
-        return df
-
-
 # # # # TWITTER STREAMER # # # #
 class TwitterStreamer():
-    """
-    Unused ATM
-    Class for streaming and processing live tweets.
-    """
 
     def __init__(self):
         self.twitter_autenticator = TwitterAuthenticator()
@@ -75,19 +96,19 @@ class TwitterStreamer():
 
 # # # # TWITTER STREAM LISTENER # # # #
 class TwitterListener(StreamListener):
-    """
-    Unused ATM
-    This is a basic listener that just prints received tweets to a fetched_tweets_filename.
-    """
 
     def __init__(self, fetched_tweets_filename):
         self.fetched_tweets_filename = fetched_tweets_filename
 
     def on_data(self, data):
         try:
-            print(data)
-            with open(self.fetched_tweets_filename, 'a') as tf:
-                tf.write(data)
+            data_json = (json.loads(data))
+            sub_data = self.filter_tweets(data_json)
+            if sub_data:
+                sub_data = self.add_state_name(sub_data)
+                print(sub_data)
+                with open(self.fetched_tweets_filename, 'a') as tf:
+                    tf.write(json.dumps(sub_data, indent=4))
             return True
         except BaseException as e:
             print("Error on_data %s" % str(e))
@@ -98,17 +119,39 @@ class TwitterListener(StreamListener):
             # Returning False on_data method in case rate limit occurs.
             return False
         print(status)
- 
+
+    # Currently filters for tweets that are in english and from the US
+    def filter_tweets(self, data):
+        wanted_keys = ['created_at', 'text']
+        sub_data = {a: data[a] for a in wanted_keys if a in data}
+
+        sub_data['place'] = ''
+        if 'lang' in data and data['lang']=='en':
+            if 'place' in data and data['place']:
+                if 'country_code' in data['place'] and data['place']['country_code'] == 'US':
+                    sub_data['place'] = data['place']
+
+        if sub_data['place']:
+            return sub_data
+        return False
+
+    def add_state_name(self, data):
+        if data['place']['place_type'] == 'city':
+            abbrev = data['place']['full_name'][-2:]
+            data['state'] = us_abbrev2_state[abbrev]
+        elif data['place']['place_type'] == 'admin':
+            data['state'] = data['place']['name']
+        else:
+            data['state'] = ""
+        data.pop('place', None)
+        return data
+
+
 if __name__ == '__main__':
+    hash_tag_list = ["covid-19", "covid", "corona virus", "#covid", "#covid-19"]
+    fetched_tweets_filename = "tweets.json"
 
-    twitter_client = TwitterClient()
-    tweet_analyzer = TweetAnalyzer()
+    twitter_streamer = TwitterStreamer()
+    twitter_streamer.stream_tweets(fetched_tweets_filename, hash_tag_list)
 
-    api = twitter_client.get_twitter_client_api()
-
-    tweets = twitter_client.get_tweets('COVID-19', 100)
-
-    df = tweet_analyzer.tweets_to_data_frame(tweets)
-    
-    print(df.head(10))
 
